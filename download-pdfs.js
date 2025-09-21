@@ -53,25 +53,49 @@ if (!fs.existsSync(downloadDir)) {
   fs.mkdirSync(downloadDir, { recursive: true });
 }
 
+function getIndianFinancialYear(year, month) {
+  const monthNum = {
+    'january': 1, 'february': 2, 'march': 3, 'april': 4, 'may': 5, 'june': 6,
+    'july': 7, 'august': 8, 'september': 9, 'october': 10, 'november': 11, 'december': 12
+  }[month.toLowerCase()];
+
+  // Indian FY: April to March
+  if (monthNum >= 4) {
+    return `FY${year}-${(parseInt(year) + 1).toString().slice(-2)}`;
+  } else {
+    return `FY${parseInt(year) - 1}-${year.toString().slice(-2)}`;
+  }
+}
+
 function downloadFile(url, index) {
   return new Promise((resolve, reject) => {
     const urlPath = new URL(url).pathname;
-    const pathParts = urlPath.split("/");
+    // Remove the base path and convert to kebab case
+    const baseToRemove = '/uploads/reciepts/tenant_reciepts/';
+    const relativePath = urlPath.replace(baseToRemove, '');
 
-    const location = pathParts[pathParts.indexOf("bangalore") + 1];
-    const year = pathParts[pathParts.indexOf("bangalore") + 2];
-    const month = pathParts[pathParts.indexOf("bangalore") + 3];
+    // Extract year and month from path for financial year categorization
+    const pathParts = relativePath.split('/');
+    const year = pathParts[2]; // year is 3rd element
+    const month = pathParts[3]; // month is 4th element
 
-    let filename = `${location}-${year}-${month}.pdf`;
-    let filepath = path.join(downloadDir, filename);
+    const financialYear = getIndianFinancialYear(year, month);
+    const yearDir = path.join(downloadDir, financialYear);
 
-    // Handle duplicates by adding suffix
-    let counter = 1;
-    while (fs.existsSync(filepath)) {
-      const nameWithoutExt = filename.replace('.pdf', '');
-      filename = `${nameWithoutExt}-${counter}.pdf`;
-      filepath = path.join(downloadDir, filename);
-      counter++;
+    // Create financial year directory if it doesn't exist
+    if (!fs.existsSync(yearDir)) {
+      fs.mkdirSync(yearDir, { recursive: true });
+    }
+
+    const filename = relativePath.replace(/\//g, '_');
+    const filepath = path.join(yearDir, filename);
+
+    if (fs.existsSync(filepath)) {
+      console.log(
+        `${index + 1}/${links.length}: ${filename} already exists, skipping`
+      );
+      resolve();
+      return;
     }
 
     const file = fs.createWriteStream(filepath);
