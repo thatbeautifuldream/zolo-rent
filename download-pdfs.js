@@ -69,7 +69,7 @@ function downloadFile(url, index) {
     let counter = 1;
     while (fs.existsSync(filepath)) {
       const nameWithoutExt = filename.replace('.pdf', '');
-      filename = `${nameWithoutExt}_${counter}.pdf`;
+      filename = `${nameWithoutExt}-${counter}.pdf`;
       filepath = path.join(downloadDir, filename);
       counter++;
     }
