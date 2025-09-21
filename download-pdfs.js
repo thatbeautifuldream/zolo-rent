@@ -1,6 +1,6 @@
-const fs = require('fs');
-const path = require('path');
-const https = require('https');
+const fs = require("fs");
+const path = require("path");
+const https = require("https");
 
 /*
 extract download links from page using 
@@ -44,10 +44,10 @@ const links = [
   "https://play-zelo-production.s3.ap-south-1.amazonaws.com/uploads/reciepts/tenant_reciepts/bangalore/zolo-leela/2024/june/6663e2ede0738900012663a7_REZOLOLL20246144.pdf",
   "https://play-zelo-production.s3.ap-south-1.amazonaws.com/uploads/reciepts/tenant_reciepts/bangalore/zolo-leela/2024/june/6663e2ede0738900012663a7_REZOLOLL20246137.pdf",
   "https://play-zelo-production.s3.ap-south-1.amazonaws.com/uploads/reciepts/tenant_reciepts/bangalore/zolo-leela/2024/june/62666743e7014f00010e75f8_REZOLOLL20246136.pdf",
-  "https://play-zelo-production.s3.ap-south-1.amazonaws.com/uploads/reciepts/tenant_reciepts/bangalore/zolo-leela/2024/june/62666743e7014f00010e75f8_REZOLOLL20246121.pdf"
+  "https://play-zelo-production.s3.ap-south-1.amazonaws.com/uploads/reciepts/tenant_reciepts/bangalore/zolo-leela/2024/june/62666743e7014f00010e75f8_REZOLOLL20246121.pdf",
 ];
 
-const downloadDir = './pdfs';
+const downloadDir = "./pdfs";
 
 if (!fs.existsSync(downloadDir)) {
   fs.mkdirSync(downloadDir, { recursive: true });
@@ -56,41 +56,48 @@ if (!fs.existsSync(downloadDir)) {
 function downloadFile(url, index) {
   return new Promise((resolve, reject) => {
     const urlPath = new URL(url).pathname;
-    const pathParts = urlPath.split('/');
+    const pathParts = urlPath.split("/");
 
-    const location = pathParts[pathParts.indexOf('bangalore') + 1];
-    const year = pathParts[pathParts.indexOf('bangalore') + 2];
-    const month = pathParts[pathParts.indexOf('bangalore') + 3];
+    const location = pathParts[pathParts.indexOf("bangalore") + 1];
+    const year = pathParts[pathParts.indexOf("bangalore") + 2];
+    const month = pathParts[pathParts.indexOf("bangalore") + 3];
 
-    const filename = `${location}-${year}-${month}.pdf`;
-    const filepath = path.join(downloadDir, filename);
+    let filename = `${location}-${year}-${month}.pdf`;
+    let filepath = path.join(downloadDir, filename);
 
-    if (fs.existsSync(filepath)) {
-      console.log(`${index + 1}/${links.length}: ${filename} already exists, skipping`);
-      resolve();
-      return;
+    // Handle duplicates by adding suffix
+    let counter = 1;
+    while (fs.existsSync(filepath)) {
+      const nameWithoutExt = filename.replace('.pdf', '');
+      filename = `${nameWithoutExt}_${counter}.pdf`;
+      filepath = path.join(downloadDir, filename);
+      counter++;
     }
 
     const file = fs.createWriteStream(filepath);
 
-    https.get(url, (response) => {
-      if (response.statusCode === 200) {
-        response.pipe(file);
-        file.on('finish', () => {
+    https
+      .get(url, (response) => {
+        if (response.statusCode === 200) {
+          response.pipe(file);
+          file.on("finish", () => {
+            file.close();
+            console.log(`${index + 1}/${links.length}: Downloaded ${filename}`);
+            resolve();
+          });
+        } else {
           file.close();
-          console.log(`${index + 1}/${links.length}: Downloaded ${filename}`);
-          resolve();
-        });
-      } else {
+          fs.unlink(filepath, () => {});
+          reject(
+            new Error(`Failed to download ${filename}: ${response.statusCode}`)
+          );
+        }
+      })
+      .on("error", (err) => {
         file.close();
         fs.unlink(filepath, () => {});
-        reject(new Error(`Failed to download ${filename}: ${response.statusCode}`));
-      }
-    }).on('error', (err) => {
-      file.close();
-      fs.unlink(filepath, () => {});
-      reject(err);
-    });
+        reject(err);
+      });
   });
 }
 
@@ -104,7 +111,7 @@ async function downloadAllPDFs() {
   for (let i = 0; i < links.length; i += concurrency) {
     const batch = links.slice(i, i + concurrency);
     const batchPromises = batch.map((link, batchIndex) =>
-      downloadFile(link, i + batchIndex).catch(err => {
+      downloadFile(link, i + batchIndex).catch((err) => {
         console.error(`Error downloading: ${err.message}`);
         return null;
       })
@@ -114,7 +121,7 @@ async function downloadAllPDFs() {
     results.push(...batchResults);
   }
 
-  const successful = results.filter(r => r !== null).length;
+  const successful = results.filter((r) => r !== null).length;
   const failed = results.length - successful;
 
   console.log(`\nDownload completed!`);
